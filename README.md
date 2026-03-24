@@ -112,7 +112,7 @@ cashflow-risk-analyzer/
 ##  Roadmap
 
 - [x] Архитектура проекта
-- [ ] Базовый CRUD транзакций
+- [x] Базовый CRUD транзакций
 - [ ] Реализация Fast API
 - [ ] Risk Analysis
 - [ ] ML-прогнозирование
