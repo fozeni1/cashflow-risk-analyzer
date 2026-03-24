@@ -1,0 +1,50 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env/
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# SQLite
+*.db
+*.sqlite3
+
+# Migrations
+# alembic/versions/*.pyc
+
+.env
+.env.local
+.env.production
+
+# Flutter/Dart/Pub
+.dart_tool/
+.packages
+.pub/
+build/
+
+# Flutter specific
+ios/Flutter/.last_build_id
+android/.gradle/
+android/app/build/
+
+# Generated files
+*.lock
+
+.DS_Store
+
+.coverage
+htmlcov/
+
+*.env
