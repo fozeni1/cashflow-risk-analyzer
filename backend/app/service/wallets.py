@@ -27,13 +27,27 @@ async def get_total_balance(db: Session, current_user: User) -> TotalBalance:
         else:
             # Если валюта другая - получаем курс обмена в рубли
             exchange_rate = await exchange_service.get_exchange_rate(wallet.currency, CurrencyEnum.RUB)
-
+            # Конвертируем баланс в рубли и добавляем к общему балансу
             total_balance += exchange_rate * wallet.balance
 
     # Возвращаем общий баланс в рублях
     return TotalBalance(total_balance=total_balance)
 
 def create_wallet(db: Session, current_user: User, wallet: CreateWalletRequest) -> WalletResponse:
+    """
+    Создает новый кошелек для пользователя с проверкой на дубликаты
+    
+    Args:
+        db: Сессия базы данных
+        current_user: Текущий пользователь
+        wallet: Данные для создания кошелька (название, начальный баланс, валюта)
+        
+    Returns:
+        Информация о созданном кошельке
+        
+    Raises:
+        HTTPException: Если кошелек с таким названием уже существует
+    """
     # Проверяем не существует ли уже такой кошелек
     if wallets_repository.is_wallet_exist(db, current_user.id, wallet.name):
         raise HTTPException(status_code=400, detail=f"Wallet '{wallet.name}' already exists")  # Если кошелек уже есть - возвращаем ошибку 400
@@ -48,6 +62,16 @@ def create_wallet(db: Session, current_user: User, wallet: CreateWalletRequest) 
 
 
 def get_all_wallets(db: Session, current_user: User) -> list[WalletResponse]:
+    """
+    Получает список всех кошельков пользователя
+    
+    Args:
+        db: Сессия базы данных
+        current_user: Текущий пользователь
+        
+    Returns:
+        Список всех кошельков пользователя
+    """
     # Получаем все кошельки пользователя из репозитория
     wallets = wallets_repository.get_all_wallets(db, current_user.id)
     # Преобразуем модели SQLAlchemy в модели Pydantic для ответа

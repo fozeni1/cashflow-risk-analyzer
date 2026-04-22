@@ -1,152 +1,168 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../services/api_service.dart';
+import '../services/api_exception.dart';
+import '../services/auth_service.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
-    required this.onLogin,
+    required this.onLoginSuccess,
   });
 
-  final void Function({
-    required String login,
-    required String baseUrl,
-  }) onLogin;
+  final VoidCallback onLoginSuccess;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _loginController = TextEditingController();
-  final TextEditingController _baseUrlController = TextEditingController(
-    text: _defaultBaseUrl,
-  );
-
-  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _loginController.dispose();
-    _baseUrlController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit({required bool createUser}) async {
-    final login = _loginController.text.trim();
-    final baseUrl = _baseUrlController.text.trim();
-
-    if (login.isEmpty || baseUrl.isEmpty) {
-      _showMessage('Enter login and backend URL.');
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate() || _isSubmitting) {
       return;
     }
 
+    FocusScope.of(context).unfocus();
     setState(() {
-      _isLoading = true;
+      _isSubmitting = true;
     });
 
-    final api = ApiService(baseUrl: baseUrl);
-
     try {
-      if (createUser) {
-        await api.createUser(login);
-      }
-      await api.login(login);
-
+      await AuthService.login(
+        _usernameController.text,
+        _passwordController.text,
+      );
       if (!mounted) {
         return;
       }
-
-      widget.onLogin(
-        login: login,
-        baseUrl: baseUrl,
-      );
+      widget.onLoginSuccess();
     } on ApiException catch (error) {
       _showMessage(error.message);
     } catch (_) {
-      _showMessage('Failed to reach backend.');
+      _showMessage('Could not sign in. Please try again.');
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isSubmitting = false;
         });
       }
     }
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Form(
+                key: _formKey,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Cashflow Prototype',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Simple client for users, wallets, income and expense.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: _baseUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Backend URL',
-                        hintText: 'http://127.0.0.1:8000',
-                        border: OutlineInputBorder(),
+                      'Cashflow Risk Analyzer',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _loginController,
-                      decoration: const InputDecoration(
-                        labelText: 'Login',
-                        hintText: 'egor',
-                        border: OutlineInputBorder(),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Войдите, чтобы увидеть баланс, операции и прогноз расходов.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Colors.black54,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _helperText,
-                      style: Theme.of(context).textTheme.bodySmall,
+                    const SizedBox(height: 28),
+                    TextFormField(
+                      controller: _usernameController,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Введите username';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      onFieldSubmitted: (_) => _submit(),
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Введите пароль';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => _submit(createUser: false),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Login'),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _isSubmitting ? null : _submit,
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Login'),
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => _submit(createUser: true),
-                      child: const Text('Create user and login'),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: _isSubmitting
+                            ? null
+                            : () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => RegisterScreen(
+                                      onRegistered: _showMessage,
+                                    ),
+                                  ),
+                                );
+                              },
+                        child: const Text('Create account'),
+                      ),
                     ),
                   ],
                 ),
@@ -158,11 +174,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
-const String _defaultBaseUrl = kIsWeb
-    ? 'http://127.0.0.1:8000'
-    : 'http://127.0.0.1:8000';
-
-const String _helperText =
-    'Authorization is just Bearer <login>. On Android emulator use '
-    'http://10.0.2.2:8000 instead of 127.0.0.1.';

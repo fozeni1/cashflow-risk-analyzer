@@ -1,66 +1,79 @@
 import 'package:flutter/material.dart';
+
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'services/auth_service.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isLoading = true;
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final isLoggedIn = await AuthService.checkAuth();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoggedIn = isLoggedIn;
+      _isLoading = false;
+    });
+  }
+
+  void _handleLoggedIn() {
+    setState(() {
+      _isLoggedIn = true;
+    });
+  }
+
+  void _handleLoggedOut() {
+    setState(() {
+      _isLoggedIn = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cashflow Prototype',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
-      home: const AppShell(),
+      title: 'Cashflow Risk Analyzer',
+      theme: AppTheme.lightTheme,
+      home: _isLoading
+          ? const SplashScreen()
+          : _isLoggedIn
+              ? DashboardScreen(onLoggedOut: _handleLoggedOut)
+              : LoginScreen(onLoginSuccess: _handleLoggedIn),
     );
   }
 }
 
-class AppShell extends StatefulWidget {
-  const AppShell({super.key});
-
-  @override
-  State<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends State<AppShell> {
-  String? _login;
-  String? _baseUrl;
-
-  void _handleLogin({
-    required String login,
-    required String baseUrl,
-  }) {
-    setState(() {
-      _login = login;
-      _baseUrl = baseUrl;
-    });
-  }
-
-  void _handleLogout() {
-    setState(() {
-      _login = null;
-      _baseUrl = null;
-    });
-  }
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (_login == null || _baseUrl == null) {
-      return LoginScreen(onLogin: _handleLogin);
-    }
-
-    return DashboardScreen(
-      login: _login!,
-      baseUrl: _baseUrl!,
-      onLogout: _handleLogout,
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }

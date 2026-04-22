@@ -1,7 +1,7 @@
 # Импортируем класс APIRouter для создания API endpoints
 from datetime import datetime  # Импортируем класс datetime для работы с датами
 
-from fastapi import APIRouter, Depends, Query  # Импортируем классы для создания API endpoints и dependency injection
+from fastapi import APIRouter, Depends, HTTPException, Query  # Импортируем классы для создания API endpoints и dependency injection
 # Импортируем класс Session для работы с базой данных
 from sqlalchemy.orm import Session
 
@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from app.dependency import get_db, get_current_user
 from app.models import User  # Импортируем модель пользователя
 # Импортируем модель данных для операций с деньгами
-from app.schemas import OperationRequest, OperationResponse
+from app.schemas import OperationRequest, OperationResponse, PredictionResponse
 # Импортируем сервис для работы с операциями
 from app.service import operations as operations_service
+from app.service.ml_service import PredictionUnavailableError, predict_expense
 
 # Создаем роутер для группировки endpoints связанных с операциями
 router = APIRouter()
@@ -39,3 +40,14 @@ def get_operations_list(
 ):
     # Вызываем сервис для получения списка операций с фильтрами
     return operations_service.get_operations_list(db, user, wallet_id, date_from, date_to)
+
+@router.get("/predict", response_model=PredictionResponse)
+def get_prediction(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        prediction = predict_expense(db, current_user.id)
+    except PredictionUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return prediction

@@ -18,6 +18,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     # Логин пользователя (уникальный, обязательный для заполнения)
     login: Mapped[str] = mapped_column(unique=True)
+    # Хэш пароля пользователя
+    password_hash: Mapped[str | None] = mapped_column(default=None)
 
 
 # Модель кошелька в базе данных

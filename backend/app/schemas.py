@@ -4,7 +4,7 @@ from decimal import Decimal
 
 # Импортируем классы из библиотеки Pydantic для создания моделей данных и валидации
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.enum import CurrencyEnum
 
@@ -76,15 +76,22 @@ class CreateWalletRequest(BaseModel):
 
 # Модель для создания пользователя
 class UserRequest(BaseModel):
-    # Логин пользователя (обязательное поле, максимум 127 символов)
-    login: str = Field(..., max_length=127)
+    username: str = Field(..., max_length=127)
+    password: str = Field(..., max_length=127)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
 
 # Модель для ответа с информацией о пользователе
-class UserResponse(UserRequest):
+class UserResponse(BaseModel):
     # Настройка для автоматического создания модели из атрибутов объекта (например, из модели SQLAlchemy)
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
     # Уникальный идентификатор пользователя
     id: int
+    username: str = Field(validation_alias="login")
 
 # Модель для ответа с информацией о кошельке
 class WalletResponse(BaseModel):
@@ -125,3 +132,8 @@ class OperationResponse(BaseModel):
 
 class TotalBalance(BaseModel):
     total_balance: Decimal
+
+
+class PredictionResponse(BaseModel):
+    predicted_expense: float
+    predicted_balance: float

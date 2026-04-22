@@ -3,9 +3,8 @@ from fastapi import APIRouter, Depends  # Импортируем классы д
 # Импортируем класс Session для работы с базой данных
 from sqlalchemy.orm import Session
 
-from app.api.v1.users import get_current_user  # Импортируем функцию для получения текущего пользователя
-# Импортируем функцию для получения сессии базы данных через dependency injection
-from app.dependency import get_db
+# Импортируем функции для получения сессии базы данных и текущего пользователя
+from app.dependency import get_current_user, get_db
 from app.models import User  # Импортируем модель пользователя
 # Импортируем модель данных для создания кошелька
 from app.schemas import CreateWalletRequest, WalletResponse

@@ -1,191 +1,184 @@
 import 'dart:convert';
 
-import '../models/dashboard_data.dart';
+import 'package:http/http.dart' as http;
+
 import '../models/operation.dart';
 import '../models/wallet.dart';
-import 'simple_http_client.dart';
+import 'api_config.dart';
+import 'api_exception.dart';
+import 'auth_service.dart';
 
 class ApiService {
-  ApiService({
-    required String baseUrl,
-  }) : _baseUrl = _normalizeBaseUrl(baseUrl);
+  static String get baseUrl => ApiConfig.baseUrl;
 
-  final String _baseUrl;
-  final SimpleHttpClient _client = createSimpleHttpClient();
-
-  Future<void> login(String login) async {
-    await _get(
-      '/users/me',
-      login: login,
-    );
-  }
-
-  Future<void> createUser(String login) async {
-    await _post(
-      '/users',
-      body: {'login': login},
-    );
-  }
-
-  Future<double> fetchBalance(String login) async {
-    final response = await _get('/balance', login: login);
-    return _toDouble(response['total_balance']);
-  }
-
-  Future<List<Wallet>> fetchWallets(String login) async {
-    final response = await _get('/wallets', login: login) as List<dynamic>;
-    return response
-        .map((item) => Wallet.fromJson(item as Map<String, dynamic>))
-        .toList();
-  }
-
-  Future<List<Operation>> fetchOperations(String login) async {
-    final response = await _get('/operations', login: login) as List<dynamic>;
-    final operations = response
-        .map((item) => Operation.fromJson(item as Map<String, dynamic>))
-        .toList();
-    operations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return operations;
-  }
-
-  Future<DashboardData> fetchDashboard(String login) async {
-    final results = await Future.wait([
-      fetchBalance(login),
-      fetchWallets(login),
-      fetchOperations(login),
-    ]);
-
-    return DashboardData(
-      totalBalance: results[0] as double,
-      wallets: results[1] as List<Wallet>,
-      operations: results[2] as List<Operation>,
-    );
-  }
-
-  Future<void> createWallet({
-    required String login,
-    required String name,
-    required String currency,
-    required String initialBalance,
-  }) async {
-    await _post(
-      '/wallets',
-      login: login,
-      body: {
-        'name': name,
-        'initial_balance': initialBalance,
-        'currency': currency,
-      },
-    );
-  }
-
-  Future<void> createOperation({
-    required String login,
-    required String walletName,
-    required String type,
-    required String amount,
-    required String description,
-  }) async {
-    final normalizedType = type.toLowerCase();
-    final path = normalizedType == 'expense'
-        ? '/operations/expense'
-        : '/operations/income';
-
-    await _post(
-      path,
-      login: login,
-      body: {
-        'wallet_name': walletName,
-        'amount': amount,
-        'description': description.isEmpty ? null : description,
-      },
-    );
-  }
-
-  Future<dynamic> _get(
-    String path, {
-    String? login,
-  }) async {
-    final response = await _client.get(
-      '$_baseUrl$path',
-      headers: _headers(login),
-    );
-    return _decodeResponse(response);
-  }
-
-  Future<dynamic> _post(
-    String path, {
-    String? login,
-    required Map<String, dynamic> body,
-  }) async {
-    final response = await _client.post(
-      '$_baseUrl$path',
-      headers: _headers(login),
-      body: jsonEncode(body),
-    );
-    return _decodeResponse(response);
-  }
-
-  Map<String, String> _headers(String? login) {
-    final headers = <String, String>{
+  static Future<Map<String, String>> _headers() async {
+    final token = await AuthService.getToken();
+    return {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
-
-    if (login != null && login.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $login';
-    }
-
-    return headers;
   }
 
-  dynamic _decodeResponse(SimpleHttpResponse response) {
+  static Future<double> getBalance() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/balance'),
+      headers: await _headers(),
+    );
+
+    final data = _decodeResponse(response) as Map<String, dynamic>;
+    return _parseDouble(data['total_balance']);
+  }
+
+  static Future<List<OperationModel>> getOperations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/operations'),
+      headers: await _headers(),
+    );
+
+    final data = _decodeResponse(response) as List<dynamic>;
+    return data
+        .map((item) => OperationModel.fromJson(item as Map<String, dynamic>))
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  static Future<List<WalletModel>> getWallets() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/wallets'),
+      headers: await _headers(),
+    );
+
+    final data = _decodeResponse(response) as List<dynamic>;
+    return data
+        .map((item) => WalletModel.fromJson(item as Map<String, dynamic>))
+        .toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  static Future<WalletModel> createWallet({
+    required String name,
+    double initialBalance = 0,
+    String currency = 'rub',
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/wallets'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'name': name.trim(),
+        'initial_balance': initialBalance,
+        'currency': currency.toLowerCase(),
+      }),
+    );
+
+    final data = _decodeResponse(response) as Map<String, dynamic>;
+    return WalletModel.fromJson(data);
+  }
+
+  static Future<OperationModel> addExpense({
+    required String walletName,
+    required double amount,
+    String? description,
+  }) {
+    return _createOperation(
+      type: 'expense',
+      walletName: walletName,
+      amount: amount,
+      description: description,
+    );
+  }
+
+  static Future<OperationModel> addIncome({
+    required String walletName,
+    required double amount,
+    String? description,
+  }) {
+    return _createOperation(
+      type: 'income',
+      walletName: walletName,
+      amount: amount,
+      description: description,
+    );
+  }
+
+  static Future<Map<String, double>?> getPrediction() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/predict'),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode == 503) {
+      return null;
+    }
+
+    final data = _decodeResponse(response) as Map<String, dynamic>;
+    return {
+      'predicted_expense': _parseDouble(data['predicted_expense']),
+      'predicted_balance': _parseDouble(data['predicted_balance']),
+    };
+  }
+
+  static Future<OperationModel> _createOperation({
+    required String type,
+    required String walletName,
+    required double amount,
+    String? description,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/operations/$type'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'wallet_name': walletName.trim(),
+        'amount': amount,
+        'description':
+            description?.trim().isEmpty ?? true ? null : description?.trim(),
+      }),
+    );
+
+    final data = _decodeResponse(response) as Map<String, dynamic>;
+    return OperationModel.fromJson(data);
+  }
+
+  static dynamic _decodeResponse(http.Response response) {
+    final body = response.body.trim();
+    final decoded = body.isEmpty ? null : jsonDecode(body);
+
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) {
-        return null;
-      }
-
-      return jsonDecode(response.body);
+      return decoded;
     }
 
-    String message = 'Request failed with status ${response.statusCode}';
-    if (response.body.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(response.body);
-        if (decoded is Map<String, dynamic> && decoded['detail'] != null) {
-          message = decoded['detail'].toString();
-        }
-      } catch (_) {
-        message = response.body;
-      }
-    }
-
-    throw ApiException(message);
+    throw ApiException(
+      _extractErrorMessage(decoded) ??
+          'Request failed with ${response.statusCode}',
+      statusCode: response.statusCode,
+    );
   }
 
-  static String _normalizeBaseUrl(String value) {
-    final trimmed = value.trim().replaceAll(RegExp(r'/+$'), '');
-    if (trimmed.endsWith('/api/v1')) {
-      return trimmed;
+  static String? _extractErrorMessage(dynamic decoded) {
+    if (decoded is Map<String, dynamic>) {
+      final detail = decoded['detail'];
+      if (detail is String && detail.isNotEmpty) {
+        return detail;
+      }
+      if (detail is List) {
+        return detail
+            .map((item) => item is Map<String, dynamic>
+                ? item['msg']?.toString() ?? item.toString()
+                : item.toString())
+            .join('\n');
+      }
     }
 
-    return '$trimmed/api/v1';
+    if (decoded is String && decoded.isNotEmpty) {
+      return decoded;
+    }
+
+    return null;
   }
 
-  static double _toDouble(dynamic value) {
+  static double _parseDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
     }
-
     return double.tryParse(value.toString()) ?? 0;
   }
-}
-
-class ApiException implements Exception {
-  final String message;
-
-  ApiException(this.message);
-
-  @override
-  String toString() => message;
 }

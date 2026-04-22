@@ -10,10 +10,14 @@ def get_user(db: Session, login: str) -> User | None:
     return db.query(User).filter(User.login == login).scalar()
 
 
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+    return db.query(User).filter(User.id == user_id).scalar()
+
+
 # Создаем нового пользователя в базе данных
-def create_user(db: Session, login: str) -> User:
+def create_user(db: Session, login: str, password_hash: str) -> User:
     # Создаем новый объект пользователя с указанным логином
-    user = User(login=login)
+    user = User(login=login, password_hash=password_hash)
     # Добавляем пользователя в сессию базы данных
     db.add(user)
     # Применяем изменения к базе данных (но не сохраняем транзакцию)
