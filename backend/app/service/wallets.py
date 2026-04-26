@@ -19,7 +19,7 @@ from app.service.ml_service import predict_expense
 
 async def get_total_balance(db: Session, current_user: User) -> TotalBalance:
     # Получаем все кошельки пользователя из репозитория
-    wallets = wallets_repository.get_all_wallets(db, current_user)
+    wallets = wallets_repository.get_all_wallets(db, current_user.id)
     # Инициализируем общий баланс нулем
     total_balance = Decimal(0)
 
@@ -89,7 +89,7 @@ async def get_liquidity_score(
     total_balance_obj = await get_total_balance(db, current_user)
     total_balance = float(total_balance_obj.total_balance)
 
-    predicted_expense = predict_expense(db, user_id=current_user)["predicted_expense"]
+    predicted_expense = predict_expense(db, user_id=current_user.id)["predicted_expense"]
 
     liquidity_score = Decimal(
         ((total_balance / (predicted_expense * 30)
