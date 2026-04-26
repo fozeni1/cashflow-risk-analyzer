@@ -27,6 +27,7 @@ venv/
 .env
 .env.local
 .env.production
+!backend/.env.example
 
 # Flutter/Dart/Pub
 .dart_tool/
