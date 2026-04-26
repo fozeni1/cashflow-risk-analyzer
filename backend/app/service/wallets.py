@@ -90,11 +90,12 @@ async def get_liquidity_score(
     total_balance = float(total_balance_obj.total_balance)
 
     predicted_expense = predict_expense(db, user_id=current_user.id)["predicted_expense"]
+
     if predicted_expense == 0:
         return LiquidityScore(amount=Decimal(0))
-    else:
-        liquidity_score = Decimal(
-            ((total_balance / (predicted_expense * 30)
-        ) * 30).round(0))
 
-        return LiquidityScore(amount=liquidity_score)
+    liquidity_score = Decimal(
+        total_balance / predicted_expense
+    ).quantize(Decimal("1"))
+
+    return LiquidityScore(amount=liquidity_score)
