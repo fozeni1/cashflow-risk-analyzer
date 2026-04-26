@@ -137,3 +137,9 @@ class TotalBalance(BaseModel):
 class PredictionResponse(BaseModel):
     predicted_expense: float
     predicted_balance: float
+
+class LiquidityScore(BaseModel):
+
+    model_config = {"from_attributes": True}
+
+    amount: Decimal

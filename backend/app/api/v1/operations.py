@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from app.dependency import get_db, get_current_user
 from app.models import User  # Импортируем модель пользователя
 # Импортируем модель данных для операций с деньгами
-from app.schemas import OperationRequest, OperationResponse, PredictionResponse
+from app.schemas import OperationRequest, OperationResponse, PredictionResponse, LiquidityScore
 # Импортируем сервис для работы с операциями
 from app.service import operations as operations_service
+from app.service.wallets import get_liquidity_score
 from app.service.ml_service import PredictionUnavailableError, predict_expense
 
 # Создаем роутер для группировки endpoints связанных с операциями
@@ -51,3 +52,10 @@ def get_prediction(
     except PredictionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     return prediction
+
+@router.get("/liquidity", response_model=LiquidityScore)
+async def get_liquidity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await get_liquidity_score(db, current_user.id)

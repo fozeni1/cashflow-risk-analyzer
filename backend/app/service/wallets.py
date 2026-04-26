@@ -12,10 +12,14 @@ from app.repository import wallets as wallets_repository
 # Импортируем модель данных для создания кошелька
 from app.schemas import CreateWalletRequest, WalletResponse, TotalBalance
 from app.service import exchange_service
+from app.schemas import LiquidityScore
+# Импортируем репозиторий для работы с кошельками
+from app.repository import wallets as wallets_repository
+from app.service.ml_service import predict_expense
 
 async def get_total_balance(db: Session, current_user: User) -> TotalBalance:
     # Получаем все кошельки пользователя из репозитория
-    wallets = wallets_repository.get_all_wallets(db, current_user.id)
+    wallets = wallets_repository.get_all_wallets(db, current_user)
     # Инициализируем общий баланс нулем
     total_balance = Decimal(0)
 
@@ -77,3 +81,18 @@ def get_all_wallets(db: Session, current_user: User) -> list[WalletResponse]:
     # Преобразуем модели SQLAlchemy в модели Pydantic для ответа
     return [WalletResponse.model_validate(wallet) for wallet in wallets]
 
+async def get_liquidity_score(
+        db: Session,
+        current_user: User
+) -> LiquidityScore:
+
+    total_balance_obj = await get_total_balance(db, current_user)
+    total_balance = float(total_balance_obj.total_balance)
+
+    predicted_expense = predict_expense(db, user_id=current_user)["predicted_expense"]
+
+    liquidity_score = Decimal(
+        ((total_balance / (predicted_expense * 30)
+    ) * 30).round(0))
+
+    return LiquidityScore(amount=liquidity_score)
