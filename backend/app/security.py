@@ -2,11 +2,10 @@ from datetime import timedelta
 import hashlib
 import hmac
 import os
-from readline import backend
 import secrets
 from dotenv import load_dotenv
 import os
-load_dotenv("/Users/egor/Documents/cashflow-risk-analyzer/backend/.env")
+load_dotenv()
 
 from authx import AuthX, AuthXConfig
 
