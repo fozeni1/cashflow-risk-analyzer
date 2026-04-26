@@ -58,4 +58,4 @@ async def get_liquidity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return await get_liquidity_score(db, current_user.id)
+    return await get_liquidity_score(db, current_user)
